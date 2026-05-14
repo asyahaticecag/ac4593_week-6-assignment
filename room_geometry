@@ -198,7 +198,9 @@ def create_bookshelf(width=1.2, height=3.5, depth=0.4, shelves=4, position=(0, 0
     parts.append(back)
 
     for i in range(shelves):
-        shelf_y = i * (height / (shelves - 1)) if shelves > 1 else 0
+        shelf_y = i * (height / (shelves - 1)) 
+        if shelves < 1:
+            raise ValueError("shelves must be at least 1")
         board = cmds.polyCube(
             name="shelf_board_#",
             width=width - pt * 2,

@@ -13,8 +13,7 @@ import sys
 import maya.cmds as cmds
 
 # ---------------------------------------------------------------------------
-# sys.path block -- lets Maya find sibling modules no matter how this
-# file is sourced (runpy, execfile, drag-and-drop, or Script Editor).
+# sys.path block -- lets Maya find sibling modules
 # ---------------------------------------------------------------------------
 try:
     _THIS_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -32,9 +31,9 @@ import room_materials as mat
 # Room configuration
 # ---------------------------------------------------------------------------
 
-room_width = 12       # X extent of the floor
-room_depth = 12       # Z extent of the floor
-wall_height = 5       # Height of each wall panel
+ROOM_WIDTH = 12       # X extent of the floor
+ROOM_DEPTH = 12       # Z extent of the floor
+WALL_HEIGHT = 5       # Height of each wall panel
 
 # Material palette:  key -> (shader_name, (R, G, B))
 MATERIAL_PALETTE = {
@@ -57,8 +56,8 @@ def build_room(position=(0, 0, 0)):
 
     Intentional layout (all furniture placed on y=0, sitting on the floor):
 
-        Back wall  -- along X at z = -room_depth/2
-        Left wall  -- along Z at x = -room_width/2  (corner joint)
+        Back wall  -- along X at z = -ROOM_DEPTH/2
+        Left wall  -- along Z at x = -ROOM_WIDTH/2  (corner joint)
 
         Desk       -- against the left wall, pushed into the back corner
         Chair      -- in front of the desk, pulled out ready to sit
@@ -73,8 +72,8 @@ def build_room(position=(0, 0, 0)):
         str: Name of the top-level room group node.
     """
     px, py, pz = position
-    hw = room_width / 2.0   # half-width  (X)
-    hd = room_depth / 2.0   # half-depth  (Z)
+    hw = ROOM_WIDTH / 2.0   # half-width  (X)
+    hd = ROOM_DEPTH / 2.0   # half-depth  (Z)
     parts = []
 
     # ---- Create material shaders ----------------------------------------
@@ -84,8 +83,8 @@ def build_room(position=(0, 0, 0)):
 
     # ---- Floor --------------------------------------------------------------
     floor = geo.create_floor(
-        width=room_width,
-        depth=room_depth,
+        width=ROOM_WIDTH,
+        depth=ROOM_DEPTH,
         position=(px, py, pz),
     )
     mat.assign_material(floor, shaders["floor"])
@@ -93,8 +92,8 @@ def build_room(position=(0, 0, 0)):
 
     # ---- Back wall (runs along X, closes the far end of the room) ----------
     back_wall = geo.create_wall(
-        width=room_width,
-        height=wall_height,
+        width=ROOM_WIDTH,
+        height=WALL_HEIGHT,
         axis="x",
         position=(px, py, pz - hd),
     )
@@ -103,8 +102,8 @@ def build_room(position=(0, 0, 0)):
 
     # ---- Left wall (runs along Z, closes the left side of the room) --------
     left_wall = geo.create_wall(
-        width=room_depth,
-        height=wall_height,
+        width=ROOM_DEPTH,
+        height=WALL_HEIGHT,
         axis="z",
         position=(px - hw, py, pz),
     )
