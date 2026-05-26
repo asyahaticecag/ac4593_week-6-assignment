@@ -23,6 +23,7 @@ except NameError:
 if _THIS_DIR not in sys.path:
     sys.path.insert(0, _THIS_DIR)
 
+## Code stoped Right here when i tired running it. It said "No module named 'room_geometry' - Aaron 
 import room_geometry as geo
 import room_materials as mat
 
