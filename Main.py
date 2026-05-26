@@ -124,6 +124,25 @@ ROOM_CONFIG = [
         "back_height": 0.7,
         "position": (0, 0, 4.5),
     },
+    
+    # Aaron's Addition 
+    {
+    "type": "wall",
+    "material": "wall",
+    "width": 12,
+    "height": 5,
+    "axis": "x",
+    "position": (0, 0, 6),
+    },
+    {
+    "type": "bookshelf",
+    "material": "bookshelf",
+    "width": 1.0,
+    "height": 3.0,
+    "depth": 0.4,
+    "shelves": 5,
+    "position": (-5.2, 0, 2.5),
+    },
 ]
 
 
