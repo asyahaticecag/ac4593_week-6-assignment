@@ -1,12 +1,16 @@
 """
 room_materials.py -- Material creation and assignment for the Cosy Bedroom Room.
 ===============================================================================
-DIGM 131 - Week 7 | Author: Asya Hatice Cag | Drexel University
+DIGM 131 - Week 8 | Author: Asya Hatice Cag | Drexel University
 
 Week 7 upgrades:
   - DEBUG flag for print-based tracing
   - Input validation: color channels clamped to [0, 1] with warnings
   - try/except around all cmds calls
+
+Week 8 fix:
+  - noSurfaceShader=True was preventing the SG from accepting a surface shader.
+    Changed to noSurfaceShader=False so Lambert color actually shows in viewport.
 
 Usage:
     import room_materials as mat
@@ -18,7 +22,7 @@ import maya.cmds as cmds
 
 
 # DEBUG flag
-DEBUG = True
+DEBUG = False
 
 
 def create_material(name, color=(0.5, 0.5, 0.5)):
@@ -56,7 +60,7 @@ def create_material(name, color=(0.5, 0.5, 0.5)):
     try:
         shader = cmds.shadingNode("lambert", asShader=True, name=name)
         sg = cmds.sets(
-            renderable=True, noSurfaceShader=True,
+            renderable=True, noSurfaceShader=False,
             empty=True, name="{}_SG".format(name),
         )
         cmds.connectAttr(
@@ -90,41 +94,74 @@ def assign_material(obj_name, shader_name):
         return
 
     if not cmds.objExists(obj_name):
-        cmds.warning("[assign_material] Object '{}' not found -- skipping.".format(obj_name))
+        cmds.warning(
+            "[assign_material] Object '{}' not found -- skipping.".format(obj_name)
+        )
         return
 
     if not cmds.objExists(shader_name):
-        cmds.warning("[assign_material] Shader '{}' not found -- skipping.".format(shader_name))
+        cmds.warning(
+            "[assign_material] Shader '{}' not found -- skipping.".format(shader_name)
+        )
         return
 
     try:
         sg_list = cmds.listConnections(
-            "{}.outColor".format(shader_name), type="shadingEngine"
+            "{}.outColor".format(shader_name),
+            type="shadingEngine"
         )
+
         if not sg_list:
-            cmds.warning("[assign_material] No shading group for '{}' -- skipping.".format(
-                shader_name))
+            cmds.warning(
+                "[assign_material] No shading group for '{}' -- skipping.".format(
+                    shader_name
+                )
+            )
             return
 
-        shapes = cmds.listRelatives(
-            obj_name, allDescendents=True, shapes=True, fullPath=True
+        # Collect ALL mesh shapes under this node (direct + all descendants).
+        # Maya can only assign materials to mesh shapes, never to transforms
+        # or group nodes, so we must walk the full hierarchy.
+        all_shapes = cmds.listRelatives(
+            obj_name,
+            allDescendents=True,
+            shapes=True,
+            fullPath=True,
+            type="mesh",       # mesh only — skips cameras, lights, etc.
         ) or []
-        targets = shapes if shapes else [obj_name]
-        cmds.sets(targets, edit=True, forceElement=sg_list[0])
+
+        # Also grab any direct mesh shapes (handles single-mesh objects)
+        direct_shapes = cmds.listRelatives(
+            obj_name,
+            shapes=True,
+            fullPath=True,
+            type="mesh",
+        ) or []
+
+        targets = list(set(all_shapes + direct_shapes))
+
+        if not targets:
+            cmds.warning(
+                "[assign_material] No mesh shapes found under '{}'".format(obj_name)
+            )
+            return
+
+        if DEBUG:
+            print("[DEBUG] assign_material: assigning '{}' to {} shapes under '{}'".format(
+                shader_name, len(targets), obj_name))
+
+        cmds.sets(
+            targets,
+            edit=True,
+            forceElement=sg_list[0]
+        )
+
     except Exception as err:
-        cmds.warning("[assign_material] Failed assigning '{}' to '{}': {}".format(
-            shader_name, obj_name, err))
+        cmds.warning(
+            "[assign_material] Failed assigning '{}' to '{}': {}".format(
+                shader_name,
+                obj_name,
+                err
+            )
+        )
 
-
-
-# Self-test
-
-if __name__ == "__main__":
-    cmds.file(new=True, force=True)
-
-    cube = cmds.polyCube(name="test_cube")[0]
-    wood = create_material("test_wood", (0.55, 0.38, 0.22))
-    assign_material(cube, wood)
-
-    cmds.viewFit(allObjects=True)
-    print("room_materials self-test complete!")
