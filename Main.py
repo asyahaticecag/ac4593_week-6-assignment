@@ -29,6 +29,7 @@ except NameError:
 if _THIS_DIR not in sys.path:
     sys.path.insert(0, _THIS_DIR)
 
+## Code stoped Right here when i tired running it. It said "No module named 'room_geometry' - Aaron 
 import room_geometry as geo
 import room_materials as mat
 
@@ -127,6 +128,25 @@ ROOM_CONFIG = [
         "seat_height": 0.5,
         "back_height": 0.7,
         "position": (0, 0, 4.5),
+    },
+    
+    # Aaron's Addition 
+    {
+    "type": "wall",
+    "material": "wall",
+    "width": 12,
+    "height": 5,
+    "axis": "x",
+    "position": (0, 0, 6),
+    },
+    {
+    "type": "bookshelf",
+    "material": "bookshelf",
+    "width": 1.0,
+    "height": 3.0,
+    "depth": 0.4,
+    "shelves": 5,
+    "position": (-5.2, 0, 2.5),
     },
 ]
 
