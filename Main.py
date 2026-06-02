@@ -29,7 +29,7 @@ except NameError:
 if _THIS_DIR not in sys.path:
     sys.path.insert(0, _THIS_DIR)
 
-## Code stoped Right here when i tired running it. It said "No module named 'room_geometry' - Aaron 
+
 import room_geometry as geo
 import room_materials as mat
 
@@ -169,6 +169,12 @@ def create_element(data):
     Returns:
         str or None: Maya node name on success, None on any failure.
     """
+    if not isinstance(data, dict):
+        cmds.warning(
+            "Config entry is not a dictionary."
+        )
+        return None
+    
     # --- Layer 1: check "type" key exists ---
     element_type = data.get("type")
     if not element_type:
@@ -226,7 +232,15 @@ def build_room():
     # Create all material shaders up front
     shaders = {}
     for key, (name, color) in MATERIAL_PALETTE.items():
-        shaders[key] = mat.create_material(name, color)
+
+        shader = mat.create_material(name, color)
+
+        if shader:
+            shaders[key] = shader
+        else:
+            cmds.warning(
+                "Material '{}' failed.".format(name)
+            )
 
     parts = []
 
@@ -252,6 +266,10 @@ def build_room():
     print("  {} parts assembled from {} config entries.".format(
         len(parts), len(ROOM_CONFIG)
     ))
+
+    if not parts:
+        cmds.warning("No room parts were created.")
+        return None
 
     return cmds.group(parts, name="cosy_bedroom_#")
 

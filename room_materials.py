@@ -77,91 +77,86 @@ def create_material(name, color=(0.5, 0.5, 0.5)):
 
 
 def assign_material(obj_name, shader_name):
-    """Assign a shader to a Maya object or group.
-
-    Handles groups by finding all descendant shapes automatically.
-
-    Args:
-        obj_name    (str): Transform, shape, or group node name.
-        shader_name (str): Shader node name returned by create_material.
-    """
-    if DEBUG:
-        print("[DEBUG] assign_material: obj='{}', shader='{}'".format(
-            obj_name, shader_name))
+    """Assign a shader to all mesh shapes under an object or group."""
 
     if not obj_name or not shader_name:
-        cmds.warning("[assign_material] Received None argument -- skipping.")
+        cmds.warning("[assign_material] Missing object or shader.")
         return
 
     if not cmds.objExists(obj_name):
-        cmds.warning(
-            "[assign_material] Object '{}' not found -- skipping.".format(obj_name)
-        )
+        cmds.warning("[assign_material] Object '{}' not found.".format(obj_name))
         return
 
     if not cmds.objExists(shader_name):
-        cmds.warning(
-            "[assign_material] Shader '{}' not found -- skipping.".format(shader_name)
-        )
+        cmds.warning("[assign_material] Shader '{}' not found.".format(shader_name))
         return
 
-    try:
-        sg_list = cmds.listConnections(
-            "{}.outColor".format(shader_name),
-            type="shadingEngine"
-        )
+    sg_list = cmds.listConnections(
+        "{}.outColor".format(shader_name),
+        type="shadingEngine"
+    ) or []
 
-        if not sg_list:
-            cmds.warning(
-                "[assign_material] No shading group for '{}' -- skipping.".format(
-                    shader_name
-                )
-            )
-            return
+    if not sg_list:
+        cmds.warning("[assign_material] No shading group for '{}'.".format(shader_name))
+        return
 
-        # Collect ALL mesh shapes under this node (direct + all descendants).
-        # Maya can only assign materials to mesh shapes, never to transforms
-        # or group nodes, so we must walk the full hierarchy.
-        all_shapes = cmds.listRelatives(
-            obj_name,
-            allDescendents=True,
+    shading_group = sg_list[0]
+    mesh_shapes = []
+
+    # Check if the object itself is a mesh shape
+    if cmds.nodeType(obj_name) == "mesh":
+        mesh_shapes.append(obj_name)
+
+    # Check direct shapes under the object
+    direct_shapes = cmds.listRelatives(
+        obj_name,
+        shapes=True,
+        fullPath=True
+    ) or []
+
+    for shape in direct_shapes:
+        if cmds.nodeType(shape) == "mesh":
+            mesh_shapes.append(shape)
+
+    # Check everything under the group
+    descendants = cmds.listRelatives(
+        obj_name,
+        allDescendents=True,
+        fullPath=True
+    ) or []
+
+    for child in descendants:
+        if cmds.nodeType(child) == "mesh":
+            mesh_shapes.append(child)
+
+        child_shapes = cmds.listRelatives(
+            child,
             shapes=True,
-            fullPath=True,
-            type="mesh",       # mesh only — skips cameras, lights, etc.
+            fullPath=True
         ) or []
 
-        # Also grab any direct mesh shapes (handles single-mesh objects)
-        direct_shapes = cmds.listRelatives(
+        for shape in child_shapes:
+            if cmds.nodeType(shape) == "mesh":
+                mesh_shapes.append(shape)
+
+    mesh_shapes = list(set(mesh_shapes))
+
+    if not mesh_shapes:
+        cmds.warning("[assign_material] No mesh shapes found under '{}'.".format(obj_name))
+        print("Children found under '{}': {}".format(
             obj_name,
-            shapes=True,
-            fullPath=True,
-            type="mesh",
-        ) or []
+            cmds.listRelatives(obj_name, allDescendents=True) or []
+        ))
+        return
 
-        targets = list(set(all_shapes + direct_shapes))
+    cmds.sets(
+        mesh_shapes,
+        edit=True,
+        forceElement=shading_group
+    )
 
-        if not targets:
-            cmds.warning(
-                "[assign_material] No mesh shapes found under '{}'".format(obj_name)
-            )
-            return
-
-        if DEBUG:
-            print("[DEBUG] assign_material: assigning '{}' to {} shapes under '{}'".format(
-                shader_name, len(targets), obj_name))
-
-        cmds.sets(
-            targets,
-            edit=True,
-            forceElement=sg_list[0]
-        )
-
-    except Exception as err:
-        cmds.warning(
-            "[assign_material] Failed assigning '{}' to '{}': {}".format(
-                shader_name,
-                obj_name,
-                err
-            )
-        )
-
+    print("[assign_material] Assigned '{}' to {} mesh shape(s) under '{}'.".format(
+        shader_name,
+        len(mesh_shapes),
+        obj_name
+    ))
