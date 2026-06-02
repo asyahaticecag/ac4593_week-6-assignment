@@ -1,17 +1,20 @@
 """
 main.py -- Cosy Bedroom Generator
-=====================================
-DIGM 131 - Week 8 | Author: Asya Hatice Cag | Drexel University
+=================================
+DIGM 131 - Week 9 | Author: Asya Hatice Cag | Drexel University
 
-Assembles a complete cosy bedroom using the geometry and
-material modules. All dimensions and positions are set here
-as configuration constants.
+Assembles a complete cosy bedroom using separate geometry,
+material, JSON, and UI modules. All major scene elements are
+defined through ROOM_CONFIG so the room can be edited through
+data instead of rewriting the driver loop.
 
-Week 8 updates:
-  - Materials fixed: assign_material now uses type="mesh" filter so Lambert
-    colors are correctly applied to all mesh shapes inside furniture groups.
-  - Positioning bug fixed in room_geometry.py: cmds.xform translation was only
-    moving the pivot, not the geometry. Replaced with cmds.move(worldSpace=True).
+Week 9 updates:
+  - Added JSON save/load support through room_io.py.
+  - Added Maya UI support through room_ui.py.
+  - Added optional rotation support for data-driven layout control.
+  - Updated material assignment so shaders work on grouped furniture.
+  - Updated room layout with the bed in the corner, desk and chair nearby,
+    and chair/couch rotated to face the correct direction.
 """
 
 import os
@@ -33,15 +36,21 @@ if _THIS_DIR not in sys.path:
 import room_geometry as geo
 import room_materials as mat
 
+import importlib
+geo = importlib.reload(geo)
+mat = importlib.reload(mat)
+
+print("USING ROOM MATERIALS FROM:", mat.__file__)
+
 # DEBUG flag
-DEBUG = True
+DEBUG = False
 
 # Material palette:  key -> (shader_name, (R, G, B))
 MATERIAL_PALETTE = {
     "floor":     ("pale_wood",    (0.76, 0.64, 0.48)),
     "wall":      ("warm_plaster", (0.92, 0.88, 0.82)),
     "desk":      ("dark_wood",    (0.40, 0.26, 0.14)),
-    "chair":     ("charcoal",     (0.25, 0.25, 0.28)),
+    "chair":     ("mid_wood",     (0.55, 0.38, 0.22)),
     "bookshelf": ("mid_wood",     (0.55, 0.38, 0.22)),
     "bed":       ("soft_linen",   (0.85, 0.82, 0.76)),
     "couch":     ("sage_green",   (0.45, 0.55, 0.45)),
@@ -92,7 +101,7 @@ ROOM_CONFIG = [
         "width": 3.5,
         "depth": 1.5,
         "height": 1.5,
-        "position": (-3.85, 0, -4.85),
+        "position": (0.2, 0, -5.0),
     },
     {
         "type": "chair",
@@ -101,7 +110,7 @@ ROOM_CONFIG = [
         "seat_depth": 0.9,
         "seat_height": 1.0,
         "back_height": 0.8,
-        "position": (-3.85, 0, -3.0),
+        "position": (0.2, 0, -3.0),
     },
     {
         "type": "bookshelf",
@@ -110,7 +119,7 @@ ROOM_CONFIG = [
         "height": 3.5,
         "depth": 0.4,
         "shelves": 4,
-        "position": (2.5, 0, -5.6),
+        "position": (2.8, 0, -5.6),
     },
     {
         "type": "bed",
@@ -118,7 +127,7 @@ ROOM_CONFIG = [
         "width": 2.2,
         "length": 3.5,
         "height": 0.6,
-        "position": (4.7, 0, -3.85),
+        "position": (-4.7, 0, -4.1),
     },
     {
         "type": "couch",
@@ -146,7 +155,7 @@ ROOM_CONFIG = [
     "height": 3.0,
     "depth": 0.4,
     "shelves": 5,
-    "position": (-5.2, 0, 2.5),
+    "position": (4.9, 0, -5.6),
     },
 ]
 
@@ -156,18 +165,21 @@ ROOM_CONFIG = [
 # ---------------------------------------------------------------------------
 
 def create_element(data):
-    """Dispatch one config entry to the correct builder function.
+    """Create one scene element from a ROOM_CONFIG dictionary.
 
-    Three-layer defensive check:
-      1. Verify the "type" key exists in the dict.
-      2. Verify the type name exists in BUILDERS.
-      3. Try calling the builder; catch TypeError from bad params.
+    The function validates the config entry, looks up the matching
+    builder function from BUILDERS, removes metadata keys that should
+    not be passed into geometry functions, and applies optional rotation
+    after the object is created.
 
     Args:
-        data (dict): One config entry from ROOM_CONFIG.
+        data (dict): One dictionary entry from ROOM_CONFIG. Expected keys
+            include "type", "material", dimensions, "position", and
+            optionally "rotation".
 
     Returns:
-        str or None: Maya node name on success, None on any failure.
+        str or None: Maya node name on success, None if validation or
+        construction fails.
     """
     if not isinstance(data, dict):
         cmds.warning(
@@ -222,10 +234,15 @@ def create_element(data):
 # ---------------------------------------------------------------------------
 
 def build_room():
-    """Process all entries in ROOM_CONFIG, apply materials, group everything.
+    """Build the full cosy bedroom scene.
+
+    Clears the current Maya scene, creates all materials, loops through
+    ROOM_CONFIG, builds each room element, applies the matching material,
+    and groups the completed objects under one top-level room group.
 
     Returns:
-        str: Name of the top-level room group node.
+        str or None: Name of the final cosy bedroom group, or None if no
+        parts were created.
     """
     cmds.file(new=True, force=True)
 
@@ -258,6 +275,14 @@ def build_room():
             cmds.warning(
                 "[build_room] Material key '{}' not in palette -- no shader applied.".format(mat_key)
             )
+
+        # Rotate chair 180 degrees
+        if entry["type"] == "chair":
+            cmds.rotate(0, 180, 0, node, worldSpace=True)
+
+        # Rotate couch 180 degrees
+        if entry["type"] == "couch":
+            cmds.rotate(0, 180, 0, node, worldSpace=True)
 
         parts.append(node)
 

@@ -1,27 +1,24 @@
 """
-room_geometry.py -- Geometry builders for the Cosy Bedroom Room.
-==============================================================
-DIGM 131 - Week 8 | Author: Asya Hatice Cag | Drexel University
+room_geometry.py -- Geometry builders for the Cosy Bedroom Generator.
+====================================================================
+DIGM 131 - Week 9 | Author: Asya Hatice Cag | Drexel University
 
-Week 7 upgrades:
-  - DEBUG flag: set to False to silence all [DEBUG] print lines
-  - Input validation: negative/zero dimensions replaced with defaults + warning
-  - try/except around every cmds call; returns None on failure instead of crashing
+Contains the geometry-building functions for the Cosy Bedroom Generator.
+Each function creates one room or furniture element using Maya primitives,
+groups multi-part furniture, moves the finished object into position, and
+returns the created transform node.
 
-Week 8 fix:
-  - Positioning bug fixed: all builder functions were using cmds.xform with
-    translation= to place the group, which only moves the pivot point and leaves
-    the geometry at the origin. Replaced with cmds.move(x, y, z, group,
-    worldSpace=True) which correctly moves the geometry in world space.
-  - Self-test positions match the original ROOM_CONFIG layout from main.py.
+This file only handles geometry. It does not assign materials, save JSON,
+or create UI controls. Those responsibilities are handled by separate modules.
 
-Each function creates one type of room element and returns
-the Maya node name (or None if something went wrong).
-
-Usage:
-    import room_geometry as geo
-    geo.create_desk(width=3.5, height=1.5, position=(-3.85, 0, -4.85))
+Week 9 updates:
+  - Geometry functions remain separated from UI and JSON logic.
+  - Builder functions support the data-driven ROOM_CONFIG system in Main.py.
+  - Multi-part furniture returns a group node so materials and transforms can
+    be applied from the driver loop.
+  - Input validation and try/except protection remain in place for safer builds.
 """
+
 
 import maya.cmds as cmds
 
@@ -34,15 +31,19 @@ DEBUG = False
 # ---------------------------------------------------------------------------
 
 def _positive(value, default, label):
-    """Return value if strictly positive, else warn and return default.
+    """Validate that a numeric value is positive.
+
+    If the value is zero or negative, the function warns the user and
+    returns a safe default. This prevents Maya primitive commands from
+    receiving invalid dimensions.
 
     Args:
-        value   (float): The value to check.
-        default (float): Fallback if value <= 0.
-        label   (str):   Human-readable name for the warning message.
+        value (float): Value to check.
+        default (float): Safe fallback value.
+        label (str): Name of the value being checked, used in warnings.
 
     Returns:
-        float: A positive number guaranteed to be safe for polyCube/polyPlane.
+        float: The original value if valid, otherwise the default value.
     """
     if value <= 0:
         cmds.warning(
@@ -59,15 +60,18 @@ def _positive(value, default, label):
 # ---------------------------------------------------------------------------
 
 def create_floor(width=12, depth=12, position=(0, 0, 0)):
-    """Create a flat floor plane sitting at y=0.
+    """Create the bedroom floor.
+
+    Builds a flat polygon plane at the requested position. The floor acts
+    as the base surface for the full bedroom layout.
 
     Args:
-        width    (float): Floor width along X. Default 12.
-        depth    (float): Floor depth along Z. Default 12.
-        position (tuple): (x, y, z) centre. Default origin.
+        width (float): Size of the floor along the X axis.
+        depth (float): Size of the floor along the Z axis.
+        position (tuple): World-space center position as (x, y, z).
 
     Returns:
-        str or None: Name of the created floor transform node.
+        str or None: Floor transform node name, or None if creation fails.
     """
     if DEBUG:
         print("[DEBUG] create_floor: width={}, depth={}, pos={}".format(width, depth, position))
@@ -92,16 +96,19 @@ def create_floor(width=12, depth=12, position=(0, 0, 0)):
 
 
 def create_wall(width=12, height=5, axis="x", position=(0, 0, 0)):
-    """Create a thin wall panel oriented along the given axis.
+    """Create a room wall panel.
+
+    Builds a thin polygon cube wall. The axis value controls whether the
+    wall stretches across the X axis or the Z axis.
 
     Args:
-        width    (float): Length of the wall. Default 12.
-        height   (float): Height of the wall. Default 5.
-        axis     (str):   'x' for back wall; 'z' for side wall. Default 'x'.
-        position (tuple): (x, y, z) base-centre of the wall. Default origin.
+        width (float): Length of the wall.
+        height (float): Height of the wall.
+        axis (str): "x" creates a back/front wall, "z" creates a side wall.
+        position (tuple): Base-center world position as (x, y, z).
 
     Returns:
-        str or None: Name of the created wall transform node.
+        str or None: Wall transform node name, or None if creation fails.
     """
     if DEBUG:
         print("[DEBUG] create_wall: width={}, height={}, axis='{}', pos={}".format(
@@ -132,16 +139,19 @@ def create_wall(width=12, height=5, axis="x", position=(0, 0, 0)):
 # ---------------------------------------------------------------------------
 
 def create_desk(width=3.5, depth=1.5, height=1.5, position=(0, 0, 0)):
-    """Create a desk with a tabletop slab on four legs.
+    """Create a desk from simple polygon pieces.
+
+    Builds a tabletop and four legs, groups the pieces, and moves the
+    finished desk into position.
 
     Args:
-        width    (float): Desk width along X. Default 3.5.
-        depth    (float): Desk depth along Z. Default 1.5.
-        height   (float): Height from ground to top surface. Default 1.5.
-        position (tuple): (x, y, z) base centre of the desk. Default origin.
+        width (float): Desk width along the X axis.
+        depth (float): Desk depth along the Z axis.
+        height (float): Total desk height from floor to tabletop.
+        position (tuple): Base-center world position as (x, y, z).
 
     Returns:
-        str or None: Name of the desk group transform node.
+        str or None: Desk group node name, or None if creation fails.
     """
     if DEBUG:
         print("[DEBUG] create_desk: width={}, depth={}, height={}, pos={}".format(
@@ -185,17 +195,20 @@ def create_desk(width=3.5, depth=1.5, height=1.5, position=(0, 0, 0)):
 
 def create_chair(seat_width=0.9, seat_depth=0.9, seat_height=1.0,
                  back_height=0.8, position=(0, 0, 0)):
-    """Create a chair with a seat cushion, backrest, and four legs.
+    """Create a chair from simple polygon pieces.
+
+    Builds a seat, backrest, and four legs. The pieces are grouped so the
+    driver can move, rotate, and assign materials to the chair as one object.
 
     Args:
-        seat_width  (float): Width of the seat. Default 0.9.
-        seat_depth  (float): Depth of the seat. Default 0.9.
-        seat_height (float): Height of the seat surface from ground. Default 1.0.
-        back_height (float): Height of the backrest above the seat. Default 0.8.
-        position    (tuple): (x, y, z) base centre. Default origin.
+        seat_width (float): Width of the seat along the X axis.
+        seat_depth (float): Depth of the seat along the Z axis.
+        seat_height (float): Height of the seat from the floor.
+        back_height (float): Height of the backrest above the seat.
+        position (tuple): Base-center world position as (x, y, z).
 
     Returns:
-        str or None: Name of the chair group transform node.
+        str or None: Chair group node name, or None if creation fails.
     """
     if DEBUG:
         print("[DEBUG] create_chair: sw={}, sd={}, sh={}, bh={}, pos={}".format(
@@ -251,17 +264,20 @@ def create_chair(seat_width=0.9, seat_depth=0.9, seat_height=1.0,
 
 
 def create_bookshelf(width=1.2, height=3.5, depth=0.4, shelves=4, position=(0, 0, 0)):
-    """Create a bookshelf with two side panels, a back panel, and shelf boards.
+    """Create a bookshelf from side panels and shelf boards.
+
+    Builds two vertical side panels, a back panel, and a configurable number
+    of horizontal shelves. The pieces are grouped into one bookshelf object.
 
     Args:
-        width    (float): Overall width along X. Default 1.2.
-        height   (float): Overall height. Default 3.5.
-        depth    (float): Overall depth along Z. Default 0.4.
-        shelves  (int):   Number of horizontal shelf boards. Default 4.
-        position (tuple): (x, y, z) base centre. Default origin.
+        width (float): Overall bookshelf width along the X axis.
+        height (float): Overall bookshelf height.
+        depth (float): Overall bookshelf depth along the Z axis.
+        shelves (int): Number of horizontal shelf boards.
+        position (tuple): Base-center world position as (x, y, z).
 
     Returns:
-        str or None: Name of the bookshelf group transform node.
+        str or None: Bookshelf group node name, or None if creation fails.
     """
     if DEBUG:
         print("[DEBUG] create_bookshelf: w={}, h={}, d={}, shelves={}, pos={}".format(
@@ -313,16 +329,19 @@ def create_bookshelf(width=1.2, height=3.5, depth=0.4, shelves=4, position=(0, 0
 
 
 def create_bed(width=2.2, length=3.5, height=0.6, position=(0, 0, 0)):
-    """Create a bed with a base frame, mattress, and headboard.
+    """Create a bed from frame, mattress, and headboard pieces.
+
+    Builds the bed frame first, then adds a mattress and headboard. The
+    completed bed is grouped so it can be positioned as one object.
 
     Args:
-        width    (float): Bed width along X. Default 2.2.
-        length   (float): Bed length along Z. Default 3.5.
-        height   (float): Height of the bed frame. Default 0.6.
-        position (tuple): (x, y, z) base centre of the bed. Default origin.
+        width (float): Bed width along the X axis.
+        length (float): Bed length along the Z axis.
+        height (float): Height of the bed frame.
+        position (tuple): Base-center world position as (x, y, z).
 
     Returns:
-        str or None: Name of the bed group transform node.
+        str or None: Bed group node name, or None if creation fails.
     """
     if DEBUG:
         print("[DEBUG] create_bed: width={}, length={}, height={}, pos={}".format(
@@ -369,17 +388,21 @@ def create_bed(width=2.2, length=3.5, height=0.6, position=(0, 0, 0)):
 
 def create_couch(width=2.8, depth=1.0, seat_height=0.5,
                  back_height=0.7, position=(0, 0, 0)):
-    """Create a couch with a seat, backrest, and two armrests.
+    """Create a couch from simple polygon pieces.
+
+    Builds a couch base, seat cushion, backrest, and two armrests. The pieces
+    are grouped so the couch can be moved, rotated, and assigned material as
+    one object.
 
     Args:
-        width       (float): Couch width along X. Default 2.8.
-        depth       (float): Couch depth along Z. Default 1.0.
-        seat_height (float): Height of the seat surface. Default 0.5.
-        back_height (float): Height of the backrest above the seat. Default 0.7.
-        position    (tuple): (x, y, z) base centre. Default origin.
+        width (float): Couch width along the X axis.
+        depth (float): Couch depth along the Z axis.
+        seat_height (float): Height of the couch seat.
+        back_height (float): Height of the couch backrest.
+        position (tuple): Base-center world position as (x, y, z).
 
     Returns:
-        str or None: Name of the couch group transform node.
+        str or None: Couch group node name, or None if creation fails.
     """
     if DEBUG:
         print("[DEBUG] create_couch: w={}, d={}, sh={}, bh={}, pos={}".format(

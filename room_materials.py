@@ -1,22 +1,21 @@
 """
-room_materials.py -- Material creation and assignment for the Cosy Bedroom Room.
-===============================================================================
-DIGM 131 - Week 8 | Author: Asya Hatice Cag | Drexel University
+room_materials.py -- Material creation and assignment for the Cosy Bedroom Generator.
+=====================================================================================
+DIGM 131 - Week 9 | Author: Asya Hatice Cag | Drexel University
 
-Week 7 upgrades:
-  - DEBUG flag for print-based tracing
-  - Input validation: color channels clamped to [0, 1] with warnings
-  - try/except around all cmds calls
+Contains material utility functions used by the Cosy Bedroom Generator.
 
-Week 8 fix:
-  - noSurfaceShader=True was preventing the SG from accepting a surface shader.
-    Changed to noSurfaceShader=False so Lambert color actually shows in viewport.
+This module is responsible for creating Lambert shaders and assigning them
+to room geometry. Material logic is kept separate from geometry creation,
+JSON handling, and UI code to maintain a modular project structure.
 
-Usage:
-    import room_materials as mat
-    wood = mat.create_material("warm_wood", (0.55, 0.38, 0.22))
-    mat.assign_material("desk_1", wood)
+Week 9 updates:
+  - Material assignment now supports grouped furniture.
+  - Materials are assigned to mesh shapes rather than transform groups.
+  - Added validation and defensive error handling.
+  - Supports the data-driven room generation workflow in Main.py.
 """
+
 
 import maya.cmds as cmds
 
@@ -26,19 +25,23 @@ DEBUG = False
 
 
 def create_material(name, color=(0.5, 0.5, 0.5)):
-    """Create a Lambert shader with the given name and RGB color.
+    """Create a Lambert shader with a specified RGB color.
 
-    If a shader with this name already exists, return it without creating
-    a duplicate. Each channel is clamped to [0, 1] with a warning if out
-    of range.
+    If a shader with the requested name already exists, the existing
+    shader is returned instead of creating a duplicate.
+
+    Color values are validated and clamped into the valid Maya range
+    of 0.0 to 1.0 before the shader is created.
 
     Args:
-        name  (str):   Name for the shader node.
-        color (tuple): (R, G, B) floats, each 0.0 to 1.0.
+        name (str): Name of the shader node.
+        color (tuple): RGB color values as (R, G, B).
 
     Returns:
-        str or None: The name of the shader node, or None on failure.
+        str or None: Name of the created shader node, or None if
+        shader creation fails.
     """
+
     if DEBUG:
         print("[DEBUG] create_material: name='{}', color={}".format(name, color))
 
@@ -77,7 +80,30 @@ def create_material(name, color=(0.5, 0.5, 0.5)):
 
 
 def assign_material(obj_name, shader_name):
-    """Assign a shader to all mesh shapes under an object or group."""
+    """Assign a shader to an object, mesh, transform, or furniture group.
+
+    The function supports both single mesh objects and grouped furniture.
+    If a group is provided, the hierarchy is searched recursively to find
+    all mesh shapes contained within that group.
+
+    Materials are assigned directly to mesh shapes rather than transform
+    nodes because Maya only supports material assignment on geometry.
+
+    Args:
+        obj_name (str): Name of the object, transform, or group.
+        shader_name (str): Name of the shader returned by
+            create_material().
+
+    Returns:
+        None
+
+    Side Effects:
+        - Searches the object hierarchy for mesh shapes.
+        - Assigns the specified shader to all discovered mesh shapes.
+        - Issues Maya warnings if objects, shaders, or mesh shapes
+          cannot be found.
+    """
+
 
     if not obj_name or not shader_name:
         cmds.warning("[assign_material] Missing object or shader.")
