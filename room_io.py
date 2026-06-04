@@ -1,3 +1,13 @@
+"""
+room_io.py -- JSON save/load utilities for the Cosy Bedroom Generator.
+======================================================================
+DIGM 131 - Week 9 | Author: Asya Hatice Cag | Drexel University
+
+Handles saving and loading ROOM_CONFIG data as a JSON file. This allows
+the room layout to persist outside the Maya scene and supports the Week 9
+file I/O and JSON requirements.
+"""
+
 import json
 import os
 import maya.cmds as cmds
