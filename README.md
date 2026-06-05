@@ -2,15 +2,18 @@
 
 ## What It Does
 
-Generates a cosy bedroom scene from configuration parameters. The room contains a floor, walls, desk, chair, bookshelves, bed, and couch. Every piece of furniture and architecture is described as a dictionary entry in `ROOM_CONFIG` inside `main.py`.
+Generates a cosy bedroom scene from configuration parameters. The room contains a floor, walls, desk, chair, bookshelves, bed, and couch. Every piece of furniture and architectural element is described as a dictionary entry in `ROOM_CONFIG` inside `Main.py`.
 
-The project uses a data-driven system: each dictionary entry stores the object type, material, dimensions, position, and optional rotation. The driver loop reads this data, sends it to the correct builder function, applies materials, and groups the completed room into one final scene.
+The project follows a data-driven workflow. Each dictionary stores the object type, material, dimensions, and position. The driver loop reads this data, dispatches it to the correct builder function, applies materials, and assembles the completed room automatically.
+
+---
 
 ## Project Structure
 
+
 cosy_bedroom_generator/
 
-    main.py
+    Main.py
         ROOM_CONFIG
         MATERIAL_PALETTE
         BUILDERS
@@ -39,34 +42,38 @@ cosy_bedroom_generator/
         on_build_clicked()
         on_save_clicked()
         on_load_clicked()
+        on_tweak_clicked()
 
     README.md
         Project documentation
 
 
+---
+
 ## Design Pattern: spec → base → details
 
 Every builder function follows the same three-stage pattern:
 
-* **spec** — the function parameters define what to build. No geometry exists yet.
-* **base** — the first `cmds.polyCube` or `cmds.polyPlane` creates the primary structural shape.
-* **details** — additional parts are built relative to the base, such as legs, backrests, shelves, mattresses, and armrests.
+* **spec** — function parameters define what will be built.
+* **base** — the first `cmds.polyCube()` or `cmds.polyPlane()` creates the primary structural shape.
+* **details** — additional geometry is built relative to the base shape, such as desk legs, chair backrests, shelves, mattresses, and couch armrests.
 
-All parts are collected into a list and grouped with `cmds.group()` so each piece of furniture moves as a single node.
+All furniture pieces are grouped with `cmds.group()` so they can be manipulated as a single object.
+
+---
 
 ## Data-Driven Pattern
 
-`ROOM_CONFIG` is a list of dictionaries. Each dictionary describes one scene element with keys for:
+`ROOM_CONFIG` is a list of dictionaries. Each dictionary describes one room element using keys such as:
 
-* `type`
-* `material`
+* type
+* material
 * dimensions
-* `position`
-* optional `rotation`
+* position
 
 Example:
 
-
+```python
 {
     "type": "chair",
     "material": "chair",
@@ -75,143 +82,177 @@ Example:
     "seat_height": 1.0,
     "back_height": 0.8,
     "position": (0.2, 0, -3.0),
-    "rotation": (0, 180, 0),
 }
+```
 
+The driver loop does not manually call geometry functions. Instead, it uses the `"type"` key to look up the correct builder inside `BUILDERS` and dispatches the configuration automatically.
 
-The driver loop does not manually call each furniture function. Instead, it reads the `"type"` key, finds the matching function inside `BUILDERS`, and passes the remaining data into that builder.
+---
 
 ## Error Handling
 
-`create_element()` has three layers of defence:
+`create_element()` uses multiple layers of defensive programming:
 
 1. Checks that the config entry is a dictionary.
 2. Checks that the `"type"` key exists.
 3. Checks that the type exists inside `BUILDERS`.
-4. Wraps the builder call in `try/except` so bad parameters do not crash the full room build.
+4. Wraps the builder call in `try/except` blocks to prevent crashes.
 
-Every geometry builder also validates inputs before touching Maya:
+Geometry builders also validate user input before creating geometry:
 
-* Zero or negative dimensions are replaced with safe defaults.
-* `cmds.warning()` gives feedback when invalid values are found.
-* Maya command blocks are wrapped in `try/except Exception`.
+* Invalid dimensions are replaced with safe defaults.
+* `cmds.warning()` reports invalid values.
+* Maya commands are wrapped in `try/except Exception`.
+
+---
 
 ## Material Assignment
 
 Materials are created in `room_materials.py` using Lambert shaders.
 
-The `assign_material()` function is designed to work with both single objects and grouped furniture. For example, `chair_1` is a group, but its actual mesh pieces are named things like:
+The material assignment system supports both individual mesh objects and grouped furniture.
 
-* `seat_1`
-* `backrest_1`
-* `chair_leg_1`
-* `chair_leg_2`
-* `chair_leg_3`
-* `chair_leg_4`
+For example:
 
-The material assignment function searches through the full hierarchy, finds all mesh shapes under the group, and assigns the shader to those mesh shapes instead of assigning only to the group transform.
+```text
+chair_1
+    seat_1
+    backrest_1
+    chair_leg_1
+    chair_leg_2
+    chair_leg_3
+    chair_leg_4
+```
+
+Instead of assigning materials to the transform group, the script searches through the hierarchy, finds every mesh shape, and applies the shader directly to the geometry.
+
+---
 
 ## Week 9 Updates
 
 ### JSON Save and Load
 
-A new file, `room_io.py`, adds JSON support.
+The project includes JSON support through `room_io.py`.
 
-* `save_config(config)` saves `ROOM_CONFIG` to a JSON file.
-* `load_config()` loads the saved JSON file and returns the room data.
+Functions:
 
-This allows the room configuration to persist outside Maya.
+* `save_config(config)`
+* `load_config()`
+
+This allows room configuration data to be stored outside Maya and reloaded later.
+
+---
 
 ### Maya UI
 
-A new file, `room_ui.py`, adds a simple Maya tool window.
+The project includes a custom Maya UI built in `room_ui.py`.
 
-The UI includes:
+Available buttons:
 
-* **Build Room** button
-* **Save Config JSON** button
-* **Load Config JSON** button
+* **Build Room**
+* **Save Config JSON**
+* **Load Config JSON**
+* **Tweak Room Layout**
 
-The UI does not directly create geometry. It calls functions from `main.py` and `room_io.py`, keeping the interface separate from the scene-building logic.
+The UI does not create geometry directly. Instead, it calls functions from the project modules.
 
-### Rotation Support
+---
 
-The project now supports an optional `"rotation"` key in `ROOM_CONFIG`.
+### Alternative Layout System
 
-This allows selected furniture, such as the chair and couch, to be rotated directly from the configuration data instead of manually rotating them after creation.
+The **Tweak Room Layout** button creates a second room arrangement by modifying object positions before rebuilding the room.
+
+This demonstrates how the same data-driven system can generate multiple room layouts without modifying the geometry builders.
+
+---
+
+### Material Assignment Improvements
+
+Material assignment was updated to:
+
+* Support grouped furniture.
+* Search complete hierarchies.
+* Assign shaders to mesh shapes rather than transform groups.
+
+---
 
 ## DEBUG Mode
 
-Set `DEBUG = True` at the top of a file during development to print trace lines.
-
-```python
-DEBUG = True
-```
-
-Set `DEBUG = False` before final submission to silence debug output.
-
-```python
-DEBUG = False
-```
+Each module contains a DEBUG flag.
 
 ## Functions
 
+### Main.py
+
+* `ROOM_CONFIG` — room configuration data.
+* `MATERIAL_PALETTE` — shader definitions and RGB values.
+* `BUILDERS` — dispatcher dictionary.
+* `create_element(data)` — validates and creates one room element.
+* `build_room()` — builds the complete room scene.
+
 ### room_geometry.py
 
-* `create_floor(width, depth, position)` — creates a flat polyPlane floor.
-* `create_wall(width, height, axis, position)` — creates a thin wall panel along the X or Z axis.
-* `create_desk(width, depth, height, position)` — creates a tabletop and four legs.
-* `create_chair(seat_width, seat_depth, seat_height, back_height, position)` — creates a chair with seat, backrest, and four legs.
-* `create_bookshelf(width, height, depth, shelves, position)` — creates side panels, back panel, and shelf boards.
-* `create_bed(width, length, height, position)` — creates bed frame, mattress, and headboard.
-* `create_couch(width, depth, seat_height, back_height, position)` — creates base, seat, backrest, and armrests.
+* `create_floor()` — creates a floor plane.
+* `create_wall()` — creates wall geometry.
+* `create_desk()` — creates a desk.
+* `create_chair()` — creates a chair.
+* `create_bookshelf()` — creates a bookshelf.
+* `create_bed()` — creates a bed.
+* `create_couch()` — creates a couch.
 
 ### room_materials.py
 
-* `create_material(name, color)` — creates a Lambert shader with RGB color values.
-* `assign_material(obj_name, shader_name)` — finds all mesh shapes under an object or group and assigns the selected shader.
+* `create_material()` — creates Lambert shaders.
+* `assign_material()` — assigns materials to mesh shapes.
 
 ### room_io.py
 
-* `save_config(config)` — saves the room configuration to JSON.
-* `load_config()` — loads the saved room configuration from JSON.
+* `save_config()` — saves room configuration to JSON.
+* `load_config()` — loads room configuration from JSON.
 
 ### room_ui.py
 
-* `build_ui()` — creates the Maya tool window.
-* `on_build_clicked()` — calls `main.build_room()`.
-* `on_save_clicked()` — saves `ROOM_CONFIG` to JSON.
-* `on_load_clicked()` — loads JSON data and rebuilds the room.
+* `build_ui()` — creates the Maya interface.
+* `on_build_clicked()` — builds the room.
+* `on_save_clicked()` — saves JSON data.
+* `on_load_clicked()` — loads JSON data and rebuilds.
+* `on_tweak_clicked()` — builds an alternate room layout.
 
-### main.py
-
-* `ROOM_CONFIG` — list of dictionaries describing every room element.
-* `MATERIAL_PALETTE` — material names and RGB colors.
-* `BUILDERS` — dispatcher dictionary mapping type strings to builder functions.
-* `create_element(data)` — validates one config entry, dispatches it, and applies optional rotation.
-* `build_room()` — creates materials, builds all room elements, applies shaders, and groups the final scene.
+---
 
 ## Material Palette
 
-| Key       | Shader name  | RGB                | Description        |
+| Key       | Shader Name  | RGB                | Description        |
 | --------- | ------------ | ------------------ | ------------------ |
-| floor     | pale_wood    | (0.76, 0.64, 0.48) | light wooden floor |
-| wall      | warm_plaster | (0.92, 0.88, 0.82) | warm plaster wall  |
-| desk      | dark_wood    | (0.40, 0.26, 0.14) | dark wooden desk   |
-| chair     | mid_wood     | (0.55, 0.38, 0.22) | wooden chair       |
-| bookshelf | mid_wood     | (0.55, 0.38, 0.22) | wooden shelves     |
-| bed       | soft_linen   | (0.85, 0.82, 0.76) | soft linen bed     |
-| couch     | sage_green   | (0.45, 0.55, 0.45) | sage green couch   |
+| floor     | pale_wood    | (0.76, 0.64, 0.48) | Light wooden floor |
+| wall      | warm_plaster | (0.92, 0.88, 0.82) | Warm plaster wall  |
+| desk      | dark_wood    | (0.40, 0.26, 0.14) | Dark wooden desk   |
+| chair     | mid_wood     | (0.55, 0.38, 0.22) | Wooden chair       |
+| bookshelf | mid_wood     | (0.55, 0.38, 0.22) | Wooden bookshelf   |
+| bed       | soft_linen   | (0.85, 0.82, 0.76) | Soft linen bed     |
+| couch     | sage_green   | (0.45, 0.55, 0.45) | Sage green couch   |
+
+---
 
 ## How to Run
 
-Open Maya and run the UI file:
+Open Maya and run:
 
+```python
 import room_ui
 room_ui.build_ui()
+```
 
-Then use the buttons in the tool window to build the room, save the configuration, or load a saved configuration.
+Use the UI buttons to:
+
+* Build the room
+* Save JSON data
+* Load JSON data
+* Generate an alternate room layout
+
+---
 
 ## Author
 
-Asya Hatice Cag | DIGM 131 | Drexel University
+**Asya Hatice Cag**
+DIGM 131 — Drexel University
