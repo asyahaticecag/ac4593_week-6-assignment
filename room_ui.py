@@ -77,6 +77,12 @@ def on_tweak_clicked(*args):
         elif item["type"] == "desk":
             item["position"] = (-1.5, 0, 5.0)
 
+        if item["type"] == "couch":
+            item["position"] = (2.7, 0, 5.0)
+
+        elif item["type"] == "chair":
+            item["position"] = (-1.5, 0, 3.0)
+
         elif item["type"] == "bookshelf":
             bookshelf_count += 1
 
